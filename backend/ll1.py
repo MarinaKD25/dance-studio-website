@@ -13,7 +13,7 @@ from sqlalchemy import text
 
 # Настройка подключения к базе данных
 engine = create_engine(
-    'postgresql://postgres:123456789@localhost:5432/postgres',
+    'postgresql://postgres:12@localhost:5432/postgres',
     echo=True  # Включаем логирование SQL-запросов для отладки
 )
 
