@@ -1,0 +1,488 @@
+<template>
+  <div class="teacher-schedule">
+    <h1>Расписание</h1>
+    
+    <!-- Вкладки -->
+    <div class="tabs">
+      <button 
+        :class="{ active: activeTab === 'studio' }"
+        @click="activeTab = 'studio'"
+      >
+        Расписание студии
+      </button>
+      <button 
+        :class="{ active: activeTab === 'personal' }"
+        @click="activeTab = 'personal'"
+      >
+        Мое расписание
+      </button>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="filters">
+      <div class="filter-group">
+        <label for="view-type">Просмотр:</label>
+        <select id="view-type" v-model="viewType">
+          <option value="week">На неделю</option>
+          <option value="day">На день</option>
+        </select>
+      </div>
+      
+      <div class="filter-group" v-if="viewType === 'day'">
+        <label for="date">Дата:</label>
+        <input 
+          type="date" 
+          id="date" 
+          v-model="selectedDate"
+          :min="new Date().toISOString().split('T')[0]"
+        >
+      </div>
+      
+      <div class="filter-group" v-else>
+        <label for="week">Неделя:</label>
+        <input 
+          type="week" 
+          id="week" 
+          v-model="selectedWeek"
+          :min="new Date().toISOString().split('T')[0]"
+        >
+      </div>
+    </div>
+
+    <!-- Загрузка -->
+    <div v-if="loading" class="loading">
+      Загрузка расписания...
+    </div>
+
+    <!-- Ошибка -->
+    <div v-else-if="error" class="error">
+      {{ error }}
+    </div>
+
+    <!-- Расписание студии -->
+    <div v-else-if="activeTab === 'studio'" class="schedule-content">
+      <div v-if="viewType === 'day'">
+        <div v-if="filteredStudioClasses.length === 0" class="no-classes">
+          Нет занятий на выбранную дату
+        </div>
+        <div v-else class="classes-list">
+          <div v-for="classItem in filteredStudioClasses" :key="classItem.id" class="class-card">
+            <div class="class-info">
+              <h3>{{ classItem.type }}</h3>
+              <p class="time">{{ formatTime(classItem.time) }}</p>
+              <p class="teacher">Преподаватель: {{ classItem.teacher_name }}</p>
+              <p class="hall">Зал: {{ classItem.hall_number }}</p>
+              <p class="capacity">Записано: {{ classItem.current_capacity }}/{{ classItem.capacity }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="weekly-schedule">
+        <div v-for="day in weekDays" :key="day.date" class="day-schedule">
+          <h3>{{ formatDate(day.date) }}</h3>
+          <div v-if="getClassesForDay(day.date).length === 0" class="no-classes">
+            Нет занятий
+          </div>
+          <div v-else class="classes-list">
+            <div v-for="classItem in getClassesForDay(day.date)" :key="classItem.id" class="class-card">
+              <div class="class-info">
+                <h3>{{ classItem.type }}</h3>
+                <p class="time">{{ formatTime(classItem.time) }}</p>
+                <p class="teacher">Преподаватель: {{ classItem.teacher_name }}</p>
+                <p class="hall">Зал: {{ classItem.hall_number }}</p>
+                <p class="capacity">Записано: {{ classItem.current_capacity }}/{{ classItem.capacity }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Личное расписание -->
+    <div v-else class="schedule-content">
+      <div v-if="viewType === 'day'">
+        <div v-if="filteredPersonalClasses.length === 0" class="no-classes">
+          У вас нет занятий на выбранную дату
+        </div>
+        <div v-else class="classes-list">
+          <div v-for="classItem in filteredPersonalClasses" :key="classItem.id" class="class-card">
+            <div class="class-info">
+              <h3>{{ classItem.type }}</h3>
+              <p class="time">{{ formatTime(classItem.time) }}</p>
+              <p class="hall">Зал: {{ classItem.hall_number }}</p>
+              <p class="capacity">Записано: {{ classItem.current_capacity }}/{{ classItem.capacity }}</p>
+            </div>
+            <div class="class-actions">
+              <button 
+                @click="viewAttendance(classItem.id)"
+                class="view-attendance-button"
+              >
+                Посмотреть записавшихся
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="weekly-schedule">
+        <div v-for="day in weekDays" :key="day.date" class="day-schedule">
+          <h3>{{ formatDate(day.date) }}</h3>
+          <div v-if="getPersonalClassesForDay(day.date).length === 0" class="no-classes">
+            Нет занятий
+          </div>
+          <div v-else class="classes-list">
+            <div v-for="classItem in getPersonalClassesForDay(day.date)" :key="classItem.id" class="class-card">
+              <div class="class-info">
+                <h3>{{ classItem.type }}</h3>
+                <p class="time">{{ formatTime(classItem.time) }}</p>
+                <p class="hall">Зал: {{ classItem.hall_number }}</p>
+                <p class="capacity">Записано: {{ classItem.current_capacity }}/{{ classItem.capacity }}</p>
+              </div>
+              <div class="class-actions">
+                <button 
+                  @click="viewAttendance(classItem.id)"
+                  class="view-attendance-button"
+                >
+                  Посмотреть записавшихся
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import axios from 'axios'
+
+const API_URL = 'http://127.0.0.1:8000'
+
+export default {
+  name: 'TeacherSchedule',
+  setup() {
+    const store = useStore()
+    const router = useRouter()
+    const activeTab = ref('studio')
+    const viewType = ref('week')
+    const studioClasses = ref([])
+    const personalClasses = ref([])
+    const loading = ref(true)
+    const error = ref(null)
+    const selectedDate = ref(new Date().toISOString().split('T')[0])
+    const selectedWeek = ref(new Date().toISOString().split('T')[0])
+
+    const fetchStudioClasses = async () => {
+      loading.value = true
+      error.value = null
+      
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          error.value = 'Требуется авторизация'
+          router.push('/login')
+          return
+        }
+
+        const [classesResponse, hallsResponse] = await Promise.all([
+          axios({
+            method: 'get',
+            url: `${API_URL}/classes`,
+            headers: {
+              'token': token,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }),
+          axios({
+            method: 'get',
+            url: `${API_URL}/halls`,
+            headers: {
+              'token': token,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          })
+        ])
+
+        if (classesResponse.status === 200 && hallsResponse.status === 200) {
+          const halls = hallsResponse.data
+          studioClasses.value = classesResponse.data.map(classItem => ({
+            ...classItem,
+            capacity: halls.find(h => h.id === classItem.hall_id)?.capacity || 0
+          }))
+        }
+      } catch (err) {
+        console.error('Ошибка при загрузке расписания студии:', err)
+        error.value = 'Произошла ошибка при загрузке расписания'
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const fetchPersonalClasses = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) return
+
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        if (!currentUser || !currentUser.teacher_id) return
+
+        const [scheduleResponse, hallsResponse] = await Promise.all([
+          axios({
+            method: 'get',
+            url: `${API_URL}/teachers/${currentUser.teacher_id}/schedule`,
+            headers: {
+              'token': token,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          }),
+          axios({
+            method: 'get',
+            url: `${API_URL}/halls`,
+            headers: {
+              'token': token,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          })
+        ])
+
+        if (scheduleResponse.status === 200 && hallsResponse.status === 200) {
+          const halls = hallsResponse.data
+          personalClasses.value = scheduleResponse.data.map(classItem => ({
+            ...classItem,
+            capacity: halls.find(h => h.id === classItem.hall_id)?.capacity || 0
+          }))
+        }
+      } catch (err) {
+        console.error('Ошибка при загрузке личного расписания:', err)
+        error.value = 'Произошла ошибка при загрузке расписания'
+      }
+    }
+
+    const formatTime = (timeString) => {
+      if (!timeString) return ''
+      const [hours, minutes] = timeString.split(':')
+      return `${hours}:${minutes}`
+    }
+
+    const formatDate = (dateString) => {
+      const date = new Date(dateString)
+      const options = { weekday: 'long', day: 'numeric', month: 'long' }
+      return date.toLocaleDateString('ru-RU', options)
+    }
+
+    const viewAttendance = (classId) => {
+      router.push(`/attendance/${classId}`)
+    }
+
+    const weekDays = computed(() => {
+      const startDate = new Date(selectedWeek.value)
+      const days = []
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startDate)
+        date.setDate(startDate.getDate() + i)
+        days.push({
+          date: date.toISOString().split('T')[0],
+          dayOfWeek: date.toLocaleDateString('ru-RU', { weekday: 'long' })
+        })
+      }
+      return days
+    })
+
+    const filteredStudioClasses = computed(() => {
+      return studioClasses.value.filter(classItem => {
+        return classItem.date === selectedDate.value
+      })
+    })
+
+    const filteredPersonalClasses = computed(() => {
+      return personalClasses.value.filter(classItem => {
+        return classItem.date === selectedDate.value
+      })
+    })
+
+    const getClassesForDay = (date) => {
+      return studioClasses.value.filter(classItem => classItem.date === date)
+    }
+
+    const getPersonalClassesForDay = (date) => {
+      return personalClasses.value.filter(classItem => classItem.date === date)
+    }
+
+    onMounted(async () => {
+      if (!store.getters.isAuthenticated) {
+        router.push('/login')
+      } else {
+        await Promise.all([
+          fetchStudioClasses(),
+          fetchPersonalClasses()
+        ])
+      }
+    })
+
+    return {
+      activeTab,
+      viewType,
+      loading,
+      error,
+      selectedDate,
+      selectedWeek,
+      weekDays,
+      filteredStudioClasses,
+      filteredPersonalClasses,
+      formatTime,
+      formatDate,
+      viewAttendance,
+      getClassesForDay,
+      getPersonalClassesForDay
+    }
+  }
+}
+</script>
+
+<style scoped>
+.teacher-schedule {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tabs button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.tabs button.active {
+  background-color: #1976d2;
+  color: white;
+}
+
+.filters {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-group label {
+  font-weight: bold;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.loading, .error, .no-classes {
+  text-align: center;
+  padding: 20px;
+  font-size: 18px;
+}
+
+.error {
+  color: #c62828;
+  background-color: #ffebee;
+  border-radius: 4px;
+}
+
+.weekly-schedule {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.day-schedule {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.day-schedule h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.classes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.class-card {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.class-info h3 {
+  margin: 0 0 10px 0;
+  color: #2c3e50;
+}
+
+.time {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2196F3;
+  margin: 10px 0;
+}
+
+.teacher, .hall, .capacity {
+  margin: 5px 0;
+  color: #666;
+}
+
+.class-actions {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.view-attendance-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.view-attendance-button:hover {
+  background-color: #1565c0;
+}
+</style> 
