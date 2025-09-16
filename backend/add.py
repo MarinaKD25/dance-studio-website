@@ -22,34 +22,34 @@ def add_initial_data():
 
             print("Creating users...")
             
-            # Создание пользователей
+            # Создание пользователей (обезличенные учебные данные)
             admin_user = Users(
-                email="admin@admin.com",
-                password_hash=get_password_hash("admin123"),
+                email="admin@example.local",
+                password_hash=get_password_hash("CHANGE_ME_ADMIN"),
                 role=UserRole.ADMIN
             )
 
             student_user_1 = Users(
-                email="ivan@example.com",
-                password_hash=get_password_hash("password123"),
+                email="student1@example.local",
+                password_hash=get_password_hash("CHANGE_ME_STUDENT1"),
                 role=UserRole.STUDENT
             )
 
             student_user_2 = Users(
-                email="anna@example.com",
-                password_hash=get_password_hash("password456"),
+                email="student2@example.local",
+                password_hash=get_password_hash("CHANGE_ME_STUDENT2"),
                 role=UserRole.STUDENT
             )
 
             teacher_user_1 = Users(
-                email="maria@example.com",
-                password_hash=get_password_hash("teacher123"),
+                email="teacher1@example.local",
+                password_hash=get_password_hash("CHANGE_ME_TEACHER1"),
                 role=UserRole.TEACHER
             )
 
             teacher_user_2 = Users(
-                email="alex@example.com",
-                password_hash=get_password_hash("teacher456"),
+                email="teacher2@example.local",
+                password_hash=get_password_hash("CHANGE_ME_TEACHER2"),
                 role=UserRole.TEACHER
             )
 
@@ -70,7 +70,7 @@ def add_initial_data():
             print("Creating admin...")
             admin = Admins(
                 user_id=admin_user.id,  # Убедитесь, что передаёте user_id
-                full_name="Администратор Системы"
+                full_name="Администратор"
             )
             session.add(admin)
             session.commit()
@@ -80,18 +80,18 @@ def add_initial_data():
             print("Creating students...")
             student_1 = Students(
                 user_id=student_user_1.id,
-                full_name="Иван Иванов",
+                full_name="Студент Один",
                 date_of_birth=date(1995, 5, 15),
                 gender=Gender.MALE,
-                phone="+79123456789"
+                phone="+70000000001"
             )
 
             student_2 = Students(
                 user_id=student_user_2.id,
-                full_name="Анна Петрова",
+                full_name="Студент Два",
                 date_of_birth=date(1998, 8, 20),
                 gender=Gender.FEMALE,
-                phone="+79234567890"
+                phone="+70000000002"
             )
 
             print("Adding students to database...")
@@ -105,18 +105,18 @@ def add_initial_data():
             print("Creating teachers...")
             teacher_1 = Teachers(
                 user_id=teacher_user_1.id,
-                full_name="Мария Сидорова",
+                full_name="Преподаватель Один",
                 experience=5,
                 specialization="Jazz-funk",
-                phone="+79345678901"
+                phone="+70000000003"
             )
 
             teacher_2 = Teachers(
                 user_id=teacher_user_2.id,
-                full_name="Алексей Козлов",
+                full_name="Преподаватель Два",
                 experience=3,
                 specialization="Hip-hop",
-                phone="+79456789012"
+                phone="+70000000004"
             )
 
             print("Adding teachers to database...")
@@ -301,8 +301,8 @@ def add_test_class():
         if not teacher:
             # Создаем пользователя для преподавателя
             user = Users(
-                email="teacher@example.com",
-                password_hash=get_password_hash("teacher123"),
+                email="teacher_temp@example.local",
+                password_hash=get_password_hash("CHANGE_ME_TEACHER_TMP"),
                 role=UserRole.TEACHER
             )
             session.add(user)

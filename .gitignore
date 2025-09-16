@@ -1,0 +1,21 @@
+# Environment files
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.sqlite
+*.db
+*.log
+
+# Keys
+*.pem
+*.key
+
+# Node
+node_modules/
+dist/
+
+
