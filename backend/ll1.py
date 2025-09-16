@@ -9,11 +9,18 @@ from datetime import (
 from pydantic import EmailStr, constr, validator
 from enum import Enum
 from sqlmodel import Session, create_engine
+import os
+from dotenv import load_dotenv
 from sqlalchemy import text
 
 # Настройка подключения к базе данных
+load_dotenv()
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    raise RuntimeError('DATABASE_URL is not set in environment')
+
 engine = create_engine(
-    'postgresql://postgres:123456789@localhost:5432/postgres',
+    database_url,
     echo=True  # Включаем логирование SQL-запросов для отладки
 )
 

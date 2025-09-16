@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import os
+from dotenv import load_dotenv
 import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, validator, Field
@@ -40,6 +41,7 @@ app.add_middleware(
 )
 
 # Конфигурация JWT
+load_dotenv()
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY is not set in environment")
